@@ -57,7 +57,7 @@ $ sudo cp /etc/v2ray/config_slave_01.json /etc/v2ray/config_slave_01.json
       "settings": {}
     }
   ]
-}optimize
+}
 ```
 :::
 
