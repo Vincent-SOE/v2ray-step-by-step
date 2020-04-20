@@ -1,20 +1,26 @@
-# Nginx接管负载
+# Nginx 接管负载
 
-这种是基于 Nginx 的 upstream 实现的负载分流, 在高性能的 VPS 的加持之下能够有效提高 Websock 的并发请求.
+本文介绍使用 Nginx upstream 实现负载均衡的方法, 在高性能 VPS 的加持之下能够提高 Websock 的并发性能。<!--需要数据支撑-->
 
-这里启用两个监听服务(如果 VPS 性能足够好可以设置更多)
-* 127.0.0.1:10000  加载配置文件 config_slave_01.json
-* 127.0.0.1:10001  加载配置文件 config_slave_02.json
+本文以启用两个监听服务为例*（如果 VPS 性能足够好可以设置更多）*
 
-## 修改配置文件
+* `127.0.0.1:10000` 加载配置文件 `config_slave_01.json`
+* `127.0.0.1:10001`  加载配置文件 `config_slave_02.json`
 
+## 修改 V2Ray 配置文件
+
+::: tip
 需要分出多个配置文件来进行加载
+:::
+
 ```plain
 $ sudo mv /etc/v2ray/config.json /etc/v2ray/config_slave_01.json
-$ sudo cp /etc/v2ray/config_slave_01.json /etc/v2ray/config_slave_02.json
+$ sudo cp /etc/v2ray/config_slave_01.json /etc/v2ray/config_slave_01.json
 ```
 
-负载的配置文件只需要修改端口和日志文件目录:
+不同的 V2Ray 后端只需要修改**监听端口**和**日志文件目录**:
+
+::: details config_slave_01.json / config_slave_01.json
 ```json
 {
     "log": {
@@ -51,18 +57,21 @@ $ sudo cp /etc/v2ray/config_slave_01.json /etc/v2ray/config_slave_02.json
       "settings": {}
     }
   ]
-}
+}optimize
 ```
+:::
 
 ## 修改系统服务
 
-配置文件后,就要把最开始 Systemctl 服务脚本修改成两个服务:
+配置文件编写完成后,就要把默认的 systemd 单元文件复制并修改成两个服务:
+
 ```plain
 $ sudo mv /etc/systemd/system/v2ray.service /etc/systemd/system/v2ray-slave-01.service
 $ sudo cp /etc/systemd/system/v2ray-slave-01.service /etc/systemd/system/v2ray-slave-02.service
 ```
 
 打开系统服务文件,找到以下类似配置行并修改:
+
 ```plain
 # 修改默认加载的配置文件
 ExecStart=/usr/bin/v2ray/v2ray -config /etc/v2ray/config_slave_01.json
@@ -70,20 +79,23 @@ ExecStart=/usr/bin/v2ray/v2ray -config /etc/v2ray/config_slave_01.json
 ExecStart=/usr/bin/v2ray/v2ray -config /etc/v2ray/config_slave_02.json
 ```
 
-完成之后刷新 systemctl 的服务信息并且启动:
+完成之后重新加载 systemd 守护进程的配置:
+
 ```plain
 $ sudo systemctl daemon-reload
 $ sudo systemctl start v2ray-slave-01.service
 $ sudo systemctl start v2ray-slave-02.service
 
 # 如果启动没问题记得设置开机启动
-$ sudo systemctl enable v2ray-slave-02.service
+$ sudo systemctl enable v2ray-slave-01.service
 $ sudo systemctl enable v2ray-slave-02.service
 ```
 
-## 修改Nginx配置
+## 修改 Nginx 配置
 
 打开 Nginx 配置监听文件修改:
+
+::: details nginx.conf
 ```plain
 upstream v2ray {
     # 转发数据服务
@@ -127,5 +139,6 @@ server {
   }
 }
 ```
+:::
 
-设置完成直接重启Nginx即可,这样在大并发请求的时候 Nginx 会按照权重转发数据到不同的 v2ray 进程.
+配置完成后重启 Nginx 即可,这样在服务器处理大量并发请求时 Nginx 会按照权重转发流量到不同的 V2Ray 进程。
